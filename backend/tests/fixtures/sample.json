@@ -1,0 +1,11 @@
+{
+  "title": "Sample JSON",
+  "items": [
+    "a",
+    "b",
+    "c"
+  ],
+  "nested": {
+    "key": "value"
+  }
+}
