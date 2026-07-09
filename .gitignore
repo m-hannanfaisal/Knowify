@@ -152,3 +152,6 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 .DS_Store
+
+# Ignore README until asked
+README.md
