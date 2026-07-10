@@ -1,12 +1,15 @@
 import structlog
 from openai import AsyncOpenAI
+from langsmith import traceable
 
 from app.core.config import settings
 
 logger = structlog.get_logger(__name__)
 
 
+@traceable(run_type="llm", name="Knowify Query Rewriter")
 async def query_rewriter(
+
     query: str,
     conversation_history: list[dict[str, str]],
     long_term_memory: list[str],

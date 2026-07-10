@@ -46,3 +46,13 @@ jobs:
       run: |
         cd backend
         pytest
+
+    - name: Run RAGAS evaluations
+      env:
+        QDRANT_URL: http://localhost:6333
+        REDIS_URL: redis://localhost:6379
+        PYTHONPATH: backend
+      run: |
+        python backend/eval/run_ragas.py
+
+

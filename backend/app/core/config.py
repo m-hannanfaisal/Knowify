@@ -17,6 +17,8 @@ class Settings(BaseSettings):
 
     # LLM API
     LLM_API_KEY: str = "placeholder_key"
+    TAVILY_API_KEY: str = "placeholder_key"
+
 
     # Services
     QDRANT_URL: str = "http://localhost:6333"

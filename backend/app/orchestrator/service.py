@@ -2,7 +2,9 @@ import time
 from typing import Any, Literal, Optional, TypedDict
 import structlog
 from langgraph.graph import END, StateGraph
+from langsmith import traceable
 
+from app.core.metrics import metrics_tracker
 from app.evaluation.relevance_evaluator import evaluate_relevance
 from app.ingestion.embeddings import BaseEmbeddingProvider
 from app.orchestrator.rewriter import query_rewriter
@@ -42,6 +44,7 @@ class AgentState(TypedDict):
 # ----------------------------------------------------------------------
 
 
+@traceable(run_type="chain", name="Knowify Rewrite Node")
 async def rewrite_step(state: AgentState) -> dict:
     """Query rewriter node: refines user query for retrieval context."""
     rewrite_start = time.perf_counter()
@@ -65,6 +68,7 @@ async def rewrite_step(state: AgentState) -> dict:
             feedback=feedback,
             latency_ms=rewrite_latency,
         )
+        metrics_tracker.record_retry()
 
     return {
         "rewritten_query": current_query,
@@ -72,6 +76,7 @@ async def rewrite_step(state: AgentState) -> dict:
     }
 
 
+@traceable(run_type="chain", name="Knowify Route Node")
 async def route_step(state: AgentState) -> dict:
     """Router node: Classifies query targets to RAG, Direct, or Web Search."""
     route_start = time.perf_counter()
@@ -83,6 +88,7 @@ async def route_step(state: AgentState) -> dict:
     return {"route": route_decision}
 
 
+@traceable(run_type="retriever", name="Knowify Retrieve Node")
 async def retrieve_step(state: AgentState) -> dict:
     """Retrieval node: Queries documents from Qdrant vector database."""
     retrieve_start = time.perf_counter()
@@ -95,9 +101,14 @@ async def retrieve_step(state: AgentState) -> dict:
     )
     retrieve_latency = int((time.perf_counter() - retrieve_start) * 1000)
     logger.info("retrieval_step_complete", count=len(chunks), latency_ms=retrieve_latency)
+
+    # Record retrieval hit rate metrics
+    metrics_tracker.record_retrieval(1 if chunks else 0, 1)
+
     return {"retrieved_chunks": chunks}
 
 
+@traceable(run_type="chain", name="Knowify Evaluate Node")
 async def evaluate_step(state: AgentState) -> dict:
     """Evaluator node: Evaluates document sufficiency and relevance."""
     eval_start = time.perf_counter()
@@ -116,9 +127,14 @@ async def evaluate_step(state: AgentState) -> dict:
         feedback_for_rewrite=eval_res["feedback_for_rewrite"],
         eval_latency_ms=eval_latency,
     )
+
+    # Record faithfulness evaluation score
+    metrics_tracker.record_faithfulness(1.0 if eval_res["sufficient"] else 0.0)
+
     return {"evaluator_result": eval_res}
 
 
+@traceable(run_type="chain", name="Knowify Generate Node")
 async def generate_step(state: AgentState) -> dict:
     """Generator placeholder node: Prepares final outputs and handles retry exhaustion fallbacks."""
     eval_res = state.get("evaluator_result")
@@ -211,6 +227,7 @@ compiled_graph = workflow.compile()
 # ----------------------------------------------------------------------
 
 
+@traceable(run_type="chain", name="Knowify Orchestration Pipeline")
 async def handle_query(
     query: str,
     conversation_history: list[dict[str, str]],
@@ -237,6 +254,7 @@ async def handle_query(
         dict: The final query processing state containing rewritten query, routing, chunks,
               sufficiency flags, and safe fallbacks if required.
     """
+    metrics_tracker.record_request()
     total_start = time.perf_counter()
 
     # Build initial state with parameters and runtime dependencies injected
@@ -261,7 +279,11 @@ async def handle_query(
     # Run the pre-compiled graph asynchronously
     final_output_state = await compiled_graph.ainvoke(initial_state)
 
-    total_latency = int((time.perf_counter() - total_start) * 1000)
+    total_latency_seconds = time.perf_counter() - total_start
+    total_latency = int(total_latency_seconds * 1000)
+
+    # Record request latency in tracker
+    metrics_tracker.record_latency(total_latency_seconds)
 
     logger.info(
         "query_orchestration_complete",

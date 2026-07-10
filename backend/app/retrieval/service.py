@@ -1,5 +1,6 @@
 import time
 import structlog
+from langsmith import traceable
 
 from app.ingestion.embeddings import BaseEmbeddingProvider
 from app.retrieval.hybrid import dense_retrieval, reciprocal_rank_fusion, sparse_retrieval
@@ -7,6 +8,10 @@ from app.retrieval.models import RetrievedChunk
 from app.retrieval.reranker import BaseReranker
 
 logger = structlog.get_logger(__name__)
+
+
+@traceable(run_type="retriever", name="Knowify Hybrid Retrieval")
+
 
 
 async def retrieve(

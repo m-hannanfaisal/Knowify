@@ -73,6 +73,15 @@ class AsyncQdrantLocalWrapper:
             **kwargs,
         )
 
+    async def delete(self, collection_name: str, points_selector: Any, **kwargs: Any) -> Any:
+        return await asyncio.to_thread(
+            self._sync_client.delete,
+            collection_name=collection_name,
+            points_selector=points_selector,
+            **kwargs,
+        )
+
+
 
 # Global singleton instance for Qdrant client connection to avoid SQLite database locks
 _qdrant_client_singleton: Optional[Any] = None

@@ -1,6 +1,7 @@
 import json
 import structlog
 from openai import AsyncOpenAI
+from langsmith import traceable
 
 from app.core.config import settings
 from app.retrieval.models import RetrievedChunk
@@ -8,7 +9,9 @@ from app.retrieval.models import RetrievedChunk
 logger = structlog.get_logger(__name__)
 
 
+@traceable(run_type="llm", name="Knowify Relevance Evaluator")
 async def evaluate_relevance(
+
     original_query: str,
     rewritten_query: str,
     retrieved_chunks: list[RetrievedChunk],

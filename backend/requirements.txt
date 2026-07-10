@@ -22,6 +22,10 @@ langchain>=0.1.9
 langchain-community>=0.0.22
 docx2txt>=0.8
 langgraph>=0.1.0
+mcp>=0.1.0
+slowapi>=0.1.9
+
+
 
 
 

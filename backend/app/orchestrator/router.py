@@ -1,13 +1,16 @@
 from typing import Literal
 import structlog
 from openai import AsyncOpenAI
+from langsmith import traceable
 
 from app.core.config import settings
 
 logger = structlog.get_logger(__name__)
 
 
+@traceable(run_type="llm", name="Knowify Query Router")
 async def route_query(
+
     rewritten_query: str,
     api_key: str | None = None,
 ) -> Literal["rag", "direct", "web_search"]:
