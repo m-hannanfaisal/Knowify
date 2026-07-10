@@ -72,7 +72,9 @@ def test_parse_docx(fixtures_dir: str) -> None:
     assert isinstance(output, list)
     assert len(output) == 1
     assert "docx" in output[0].content.lower()
-    assert "Header A | Header B" in output[0].content
+    assert "Header A" in output[0].content
+    assert "Header B" in output[0].content
+
 
 
 def test_parse_pdf(fixtures_dir: str) -> None:

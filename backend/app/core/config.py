@@ -22,6 +22,13 @@ class Settings(BaseSettings):
     QDRANT_URL: str = "http://localhost:6333"
     REDIS_URL: str = "redis://localhost:6379/0"
 
+    # Development & Deployment Modes
+    # Note: docker/redis modes will be wired up in the final deployment phase.
+    QDRANT_MODE: str = "local"  # "local" (embedded) or "docker" (networked service)
+    QDRANT_LOCAL_PATH: str = "data/qdrant_local"
+    CACHE_MODE: str = "memory"  # "memory" (in-memory dict) or "redis" (networked Redis service)
+
+
 
 # Instantiate settings to be imported across the application
 settings = Settings()

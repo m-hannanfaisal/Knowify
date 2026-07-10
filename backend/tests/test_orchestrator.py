@@ -131,3 +131,52 @@ async def test_handle_query_integration() -> None:
 
     # Clean up
     await store.client.delete_collection(collection_name)
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_retry_graph_traversal() -> None:
+    """Verifies that the retry loop correctly traverses the graph edges when evaluation fails once."""
+    collection_name = "test_graph_traversal"
+    embedding_provider = MockEmbeddingProvider(dimension=64)
+    reranker = MockReranker()
+
+    store = QdrantStore(url=settings.QDRANT_URL)
+    await store.ensure_collection(collection_name, 64)
+
+    # Ingest document
+    chunks = [
+        DocumentChunk("FastAPI documentation info.", "doc1", "txt", 1, 0),
+    ]
+    texts = [c.text for c in chunks]
+    embeddings = await embedding_provider.embed_documents(texts)
+    await store.upsert_chunks(collection_name, chunks, embeddings)
+
+    # Mock evaluate_relevance to return insufficient on the first attempt and sufficient on the second
+    mock_evals = [
+        {"sufficient": False, "reasoning": "First attempt insufficient", "feedback_for_rewrite": "needs X"},
+        {"sufficient": True, "reasoning": "Second attempt sufficient", "feedback_for_rewrite": ""}
+    ]
+
+    with patch("app.orchestrator.service.evaluate_relevance", new_callable=AsyncMock) as mock_eval:
+        mock_eval.side_effect = mock_evals
+
+        res = await handle_query(
+            query="Explain FastAPI documentation",
+            conversation_history=[],
+            long_term_memory=[],
+            collection_name=collection_name,
+            embedding_provider=embedding_provider,
+            reranker=reranker,
+            api_key="placeholder_key",
+            qdrant_url=settings.QDRANT_URL
+        )
+
+        # Confirm that evaluate_relevance was called twice (initial + one retry)
+        assert mock_eval.call_count == 2
+        assert res["route"] == "rag"
+        assert res["insufficient_information"] is False
+        assert len(res["retrieved_chunks"]) > 0
+        assert "Feedback: needs X" in res["rewritten_query"] or "needs X" in res["rewritten_query"]
+
+    await store.client.delete_collection(collection_name)
+

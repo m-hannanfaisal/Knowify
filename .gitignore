@@ -155,3 +155,7 @@ Desktop.ini
 
 # Ignore README until asked
 README.md
+
+# Local database storage
+backend/data/
+

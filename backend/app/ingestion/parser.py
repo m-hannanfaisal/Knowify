@@ -5,6 +5,8 @@ import docx
 import pandas as pd
 import pypdf
 from bs4 import BeautifulSoup
+from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader, BSHTMLLoader
+
 
 
 class ParsedPage:
@@ -35,7 +37,7 @@ ParsedDocumentOutput = Union[list[ParsedPage], ParsedTable]
 
 
 def parse_pdf(file_path: str) -> list[ParsedPage]:
-    """Parses a PDF file page-by-page.
+    """Parses a PDF file page-by-page using PyPDFLoader.
 
     Args:
         file_path (str): Absolute path to the PDF.
@@ -43,16 +45,17 @@ def parse_pdf(file_path: str) -> list[ParsedPage]:
     Returns:
         list[ParsedPage]: Parsed page objects.
     """
+    loader = PyPDFLoader(file_path)
+    docs = loader.load()
     pages: list[ParsedPage] = []
-    reader = pypdf.PdfReader(file_path)
-    for i, page in enumerate(reader.pages):
-        text = page.extract_text() or ""
-        pages.append(ParsedPage(content=text, page_number=i + 1))
+    for doc in docs:
+        page_num = doc.metadata.get("page", 0) + 1
+        pages.append(ParsedPage(content=doc.page_content, page_number=page_num))
     return pages
 
 
 def parse_docx(file_path: str) -> list[ParsedPage]:
-    """Parses a DOCX file and returns its paragraphs and table content.
+    """Parses a DOCX file and returns its paragraph content using Docx2txtLoader.
 
     Args:
         file_path (str): Absolute path to the DOCX.
@@ -60,21 +63,14 @@ def parse_docx(file_path: str) -> list[ParsedPage]:
     Returns:
         list[ParsedPage]: A list containing a single ParsedPage with the document text.
     """
-    doc = docx.Document(file_path)
-    full_text: list[str] = []
-    for para in doc.paragraphs:
-        if para.text.strip():
-            full_text.append(para.text)
-    for table in doc.tables:
-        for row in table.rows:
-            row_text = [cell.text.strip() for cell in row.cells if cell.text.strip()]
-            if row_text:
-                full_text.append(" | ".join(row_text))
-    return [ParsedPage(content="\n".join(full_text), page_number=None)]
+    loader = Docx2txtLoader(file_path)
+    docs = loader.load()
+    content = "\n".join([doc.page_content for doc in docs])
+    return [ParsedPage(content=content, page_number=None)]
 
 
 def parse_html(file_path: str) -> list[ParsedPage]:
-    """Parses an HTML file extracting clean readable text.
+    """Parses an HTML file extracting clean readable text using BSHTMLLoader.
 
     Args:
         file_path (str): Absolute path to the HTML.
@@ -82,11 +78,10 @@ def parse_html(file_path: str) -> list[ParsedPage]:
     Returns:
         list[ParsedPage]: HTML text content page.
     """
-    with open(file_path, "r", encoding="utf-8") as f:
-        html_content = f.read()
-    soup = BeautifulSoup(html_content, "html.parser")
-    text = soup.get_text(separator="\n")
-    cleaned_text = "\n".join([line.strip() for line in text.splitlines() if line.strip()])
+    loader = BSHTMLLoader(file_path)
+    docs = loader.load()
+    content = "\n".join([doc.page_content for doc in docs])
+    cleaned_text = "\n".join([line.strip() for line in content.splitlines() if line.strip()])
     return [ParsedPage(content=cleaned_text, page_number=None)]
 
 
