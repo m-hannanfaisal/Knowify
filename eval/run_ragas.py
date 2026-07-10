@@ -66,15 +66,20 @@ async def run_evaluation() -> None:
         # Ingest answers from golden set as reference docs
         chunks = []
         for idx, item in enumerate(golden_set):
+            ground_truth = item.get("ground_truth") or item.get("expected_answer")
+            if not ground_truth:
+                logger.error("missing_ground_truth_or_expected_answer", index=idx, item=item)
+                sys.exit(1)
             chunks.append(
                 DocumentChunk(
-                    text=item["ground_truth"],
+                    text=ground_truth,
                     source_filename=f"ref_{idx}.txt",
                     file_type="txt",
                     page_number=None,
                     chunk_index=idx,
                 )
             )
+
 
         texts = [c.text for c in chunks]
         embeddings = await embedding_provider.embed_documents(texts)

@@ -53,6 +53,7 @@ jobs:
         REDIS_URL: redis://localhost:6379
         PYTHONPATH: backend
       run: |
-        python backend/eval/run_ragas.py
+        python eval/run_ragas.py
+
 
 
