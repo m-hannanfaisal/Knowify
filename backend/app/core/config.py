@@ -15,9 +15,15 @@ class Settings(BaseSettings):
     VERSION: str = "0.1.0"
     API_V1_STR: str = "/api/v1"
 
+    # JWT Security Configuration
+    JWT_SECRET: str = "super_secret_signing_key_change_me_in_production"
+    JWT_ALGORITHM: str = "HS256"
+    JWT_ISSUER_URL: str | None = None
+
     # LLM API
     LLM_API_KEY: str = "placeholder_key"
     TAVILY_API_KEY: str = "placeholder_key"
+
 
 
     # Services

@@ -1,0 +1,45 @@
+services:
+  # 1. FastAPI Web Backend Service
+  - type: web
+    name: knowify-backend
+    env: python
+    buildCommand: "pip install -r backend/requirements.txt"
+    startCommand: "uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT"
+    plan: starter
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: LLM_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: QDRANT_URL
+        value: "http://qdrant:6333"
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: knowify-redis
+          property: connectionString
+      - key: QDRANT_MODE
+        value: "docker"
+      - key: CACHE_MODE
+        value: "redis"
+
+  # 2. Redis Private Cache Instance
+  - type: redis
+    name: knowify-redis
+    plan: starter
+    ipAllowList: [] # Access restricted to services in the same account
+
+  # 3. Private Qdrant Vector database service (blueprint definition)
+  - type: web
+    name: qdrant
+    env: docker
+    dockerfilePath: Dockerfile
+    dockerContext: .
+    plan: starter
+    ipAllowList: []
+    disk:
+      name: qdrant-data
+      mountPath: /qdrant/storage
+      sizeGB: 10

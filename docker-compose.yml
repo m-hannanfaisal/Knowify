@@ -11,11 +11,11 @@ services:
       - LLM_API_KEY=${LLM_API_KEY:-placeholder_key}
       - QDRANT_URL=http://qdrant:6333
       - REDIS_URL=redis://redis:6379/0
+      - QDRANT_MODE=docker
+      - CACHE_MODE=redis
     depends_on:
       - qdrant
       - redis
-    volumes:
-      - ./backend:/backend
     restart: always
 
   qdrant:
@@ -23,7 +23,6 @@ services:
     ports:
       - "6333:6333"
       - "6334:6334"
-
     volumes:
       - qdrant_storage:/qdrant/storage
     restart: always

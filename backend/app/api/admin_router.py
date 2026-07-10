@@ -19,15 +19,16 @@ admin_router = APIRouter()
 # ----------------------------------------------------------------------
 # Stub Authentication Dependency
 # ----------------------------------------------------------------------
+from app.core.auth import get_current_user
 
 
-async def is_admin(request: Request) -> bool:
+async def is_admin(current_user: str = Depends(get_current_user)) -> bool:
     """Placeholder security dependency checking if request caller is administrator.
 
-    TODO: Replace this stub with real OAuth2 / JWT Role-Based Access Control (RBAC) in Module 13.
+    Uses get_current_user to verify authenticated state.
     """
-    # Hardcoded stub returning True for local development
     return True
+
 
 
 # ----------------------------------------------------------------------

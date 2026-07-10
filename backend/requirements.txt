@@ -35,6 +35,8 @@ slowapi>=0.1.9
 pydantic-settings>=2.1.0
 structlog>=24.1.0
 python-dotenv>=1.0.1
+pyjwt[crypto]>=2.8.0
+
 
 # Testing
 pytest>=8.0.0
