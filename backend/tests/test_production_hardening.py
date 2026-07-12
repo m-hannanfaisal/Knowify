@@ -107,3 +107,38 @@ def test_chat_endpoint_auth_and_guardrails() -> None:
     # Read the response event content
     content = response.text
     assert "injection" in content.lower()
+
+
+def test_admin_auth_forbidden() -> None:
+    """Verify that a standard user token results in HTTP 403 Forbidden on admin endpoints."""
+    import time
+    payload = {"sub": "regular_user_id", "email": "user@example.com", "exp": time.time() + 3600}
+    token = jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+
+    headers = {"Authorization": f"Bearer {token}"}
+    response = client.get("/admin/documents", headers=headers)
+    assert response.status_code == 403
+    assert "admin credentials required" in response.json()["detail"].lower()
+
+
+def test_admin_auth_success_via_email() -> None:
+    """Verify that a user whose email is in ADMIN_EMAILS succeeds."""
+    import time
+    payload = {"sub": "admin_user_id", "email": "admin@example.com", "exp": time.time() + 3600}
+    token = jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+
+    headers = {"Authorization": f"Bearer {token}"}
+    response = client.get("/admin/documents", headers=headers)
+    assert response.status_code == 200
+
+
+def test_admin_auth_success_via_role() -> None:
+    """Verify that a user whose role claim is admin succeeds."""
+    import time
+    payload = {"sub": "another_admin", "role": "admin", "exp": time.time() + 3600}
+    token = jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+
+    headers = {"Authorization": f"Bearer {token}"}
+    response = client.get("/admin/documents", headers=headers)
+    assert response.status_code == 200
+

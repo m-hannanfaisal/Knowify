@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     JWT_SECRET: str = "super_secret_signing_key_change_me_in_production"
     JWT_ALGORITHM: str = "HS256"
     JWT_ISSUER_URL: str | None = None
+    ADMIN_EMAILS: str = "admin@example.com"
+
+
 
     # LLM API
     LLM_API_KEY: str = "placeholder_key"

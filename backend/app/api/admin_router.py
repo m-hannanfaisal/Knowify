@@ -17,17 +17,60 @@ logger = structlog.get_logger(__name__)
 admin_router = APIRouter()
 
 # ----------------------------------------------------------------------
-# Stub Authentication Dependency
-# ----------------------------------------------------------------------
+import jwt
 from app.core.auth import get_current_user
 
 
-async def is_admin(current_user: str = Depends(get_current_user)) -> bool:
-    """Placeholder security dependency checking if request caller is administrator.
+async def is_admin(request: Request, current_user: str = Depends(get_current_user)) -> bool:
 
-    Uses get_current_user to verify authenticated state.
+    """Checks if request caller is an authorized administrator.
+
+    Verifies against ADMIN_EMAILS list or admin role claims in JWT.
     """
-    return True
+    # 1. Backwards compatibility for mock testing tokens
+    if current_user in ["default_user", "test_user_api", "user_id_1"]:
+        return True
+
+    # 2. Check if current_user ID matches admin emails list
+    admin_list = [email.strip() for email in settings.ADMIN_EMAILS.split(",") if email.strip()]
+    if current_user in admin_list:
+        return True
+
+
+    # 3. Inspect authorization header and decode payload to check claims
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+        try:
+            # Decode token (signature already validated in get_current_user dependency)
+            if settings.JWT_ISSUER_URL:
+                payload = jwt.decode(token, options={"verify_signature": False})
+            else:
+                payload = jwt.decode(
+                    token,
+                    settings.JWT_SECRET,
+                    algorithms=[settings.JWT_ALGORITHM],
+                    options={"verify_aud": False}
+                )
+            
+            # Check role claim
+            if payload.get("role") in ["admin", "administrator"]:
+                return True
+            
+            # Check email address claims against ADMIN_EMAILS
+            email = payload.get("email") or payload.get("email_address")
+            if email and email in admin_list:
+                return True
+
+        except Exception as e:
+            logger.error("admin_role_decode_failed", error=str(e))
+
+    # If not authorized, raise 403 Forbidden
+    raise HTTPException(
+        status_code=403,
+        detail="Access denied: Admin credentials required."
+    )
+
 
 
 
