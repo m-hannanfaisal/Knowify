@@ -53,16 +53,25 @@ class MockEmbeddingProvider(BaseEmbeddingProvider):
 class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
     """Provides async embeddings via the OpenAI API client."""
 
-    def __init__(self, api_key: str | None = None, model: str = "text-embedding-3-small") -> None:
+    def __init__(self, api_key: str | None = None, model: str | None = None) -> None:
         self._api_key = api_key or settings.LLM_API_KEY
-        self._model = model
-        self.client = AsyncOpenAI(api_key=self._api_key)
+        
+        is_groq = self._api_key and self._api_key.startswith("gsk_")
+        if is_groq:
+            self.base_url = "https://api.groq.com/openai/v1"
+            self._model = model or "nomic-embed-text-v1.5"
+        else:
+            self.base_url = "https://api.openai.com/v1"
+            self._model = model or "text-embedding-3-small"
+            
+        self.client = AsyncOpenAI(api_key=self._api_key, base_url=self.base_url)
 
     @property
     def dimension(self) -> int:
-        if "3-small" in self._model:
-            return 1536
+        if "nomic" in self._model:
+            return 768
         return 1536
+
 
     async def embed_documents(self, texts: list[str]) -> list[list[float]]:
         if not texts:

@@ -63,9 +63,17 @@ async def generate_caption(image_path: str, api_key: str | None = None) -> str:
         base64_image = await asyncio.to_thread(_encode_image)
         file_type = "image/png" if image_path.endswith(".png") else "image/jpeg"
 
-        client = AsyncOpenAI(api_key=api_key)
+        is_groq = api_key.startswith("gsk_")
+        if is_groq:
+            base_url = "https://api.groq.com/openai/v1"
+            model = "llama-3.2-11b-vision-preview"
+        else:
+            base_url = "https://api.openai.com/v1"
+            model = "gpt-4o-mini"
+
+        client = AsyncOpenAI(api_key=api_key, base_url=base_url)
         response = await client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=model,
             messages=[
                 {
                     "role": "user",
@@ -88,6 +96,7 @@ async def generate_caption(image_path: str, api_key: str | None = None) -> str:
         )
         caption = response.choices[0].message.content or ""
         return caption.strip()
+
     except Exception as e:
         logger.error("vision_llm_call_failed", error=str(e), image_path=image_path)
         return f"Failed to generate caption: {e}"
