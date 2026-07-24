@@ -120,10 +120,17 @@ class QdrantStore:
         exists = any(c.name == collection_name for c in response.collections)
         if not exists:
             logger.info("creating_qdrant_collection", collection=collection_name, size=vector_size)
-            await self.client.create_collection(
-                collection_name=collection_name,
-                vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
-            )
+            try:
+                await self.client.create_collection(
+                    collection_name=collection_name,
+                    vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
+                )
+            except Exception as e:
+                err_str = str(e)
+                if "already exists" in err_str or "409" in err_str or "Conflict" in err_str:
+                    logger.info("collection_already_exists_conflict_ignored", collection=collection_name, error=err_str)
+                else:
+                    raise
 
     async def upsert_chunks(
         self, collection_name: str, chunks: list[DocumentChunk], embeddings: list[list[float]]
