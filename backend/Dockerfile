@@ -14,7 +14,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY requirements.txt .
 
-# Install dependencies in a local user directory (reduces package footprint)
+# Install CPU-only PyTorch first to prevent CUDA/GPU packages from being downloaded
+RUN pip install --no-cache-dir --user torch --index-url https://download.pytorch.org/whl/cpu
+
+# Install remaining dependencies in a local user directory (reduces package footprint)
 RUN pip install --no-cache-dir --user -r requirements.txt
 
 
@@ -39,11 +42,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN groupadd -r appgroup && useradd -r -g appgroup -m -d /home/appuser appuser
 
 # Copy installed packages from builder stage
-COPY --from=builder /root/.local /home/appuser/.local
-COPY . .
-
-# Set appropriate directory ownership permissions
-RUN chown -R appuser:appgroup /backend /home/appuser
+COPY --chown=appuser:appgroup --from=builder /root/.local /home/appuser/.local
+COPY --chown=appuser:appgroup . .
 
 USER appuser
 
