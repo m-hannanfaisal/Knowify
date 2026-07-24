@@ -34,7 +34,8 @@ async def route_query(
             return "rag"
         return "direct"
 
-    client = AsyncOpenAI(api_key=api_key)
+    from app.core.config import get_llm_client_and_model
+    client, model = get_llm_client_and_model(api_key, "gpt-4o-mini")
 
     system_prompt = (
         "You are an intelligent query router in a multi-step RAG chatbot pipeline.\n"
@@ -47,7 +48,7 @@ async def route_query(
 
     try:
         response = await client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=model,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": rewritten_query},

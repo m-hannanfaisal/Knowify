@@ -123,7 +123,8 @@ async def summarize_web_results(
             mock_summary += f"- According to [{res.title}]({res.url}), {res.snippet}\n"
         return mock_summary.strip()
 
-    client = AsyncOpenAI(api_key=openai_api_key)
+    from app.core.config import get_llm_client_and_model
+    client, model = get_llm_client_and_model(openai_api_key, "gpt-4o-mini")
 
     search_results_text = "\n\n".join(
         [
@@ -148,7 +149,7 @@ async def summarize_web_results(
 
     try:
         response = await client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=model,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_content},

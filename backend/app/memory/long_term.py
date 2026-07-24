@@ -37,7 +37,8 @@ async def extract_memories(
         # Mock memory extraction for testing
         return ["User likes Python programming language.", "User prefers dark mode UI styling."]
 
-    client = AsyncOpenAI(api_key=api_key)
+    from app.core.config import get_llm_client_and_model
+    client, model = get_llm_client_and_model(api_key, "gpt-4o-mini")
 
     system_prompt = (
         "You are an expert AI user memory manager.\n"
@@ -51,7 +52,7 @@ async def extract_memories(
 
     try:
         response = await client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=model,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": conversation_transcript},
@@ -277,7 +278,8 @@ async def consolidate_memories(
             # Mock merge logic: pick longest text representing detailed statement
             merged = max(group_memories, key=len)
         else:
-            client = AsyncOpenAI(api_key=api_key)
+            from app.core.config import get_llm_client_and_model
+            client, model = get_llm_client_and_model(api_key, "gpt-4o-mini")
             system_prompt = (
                 "You are an expert AI user memory consolidator.\n"
                 "Review the following list of overlapping or near-duplicate user memory entries.\n"
@@ -288,7 +290,7 @@ async def consolidate_memories(
             user_content = "Memories to merge:\n" + "\n".join([f"- {m}" for m in group_memories])
             try:
                 response = await client.chat.completions.create(
-                    model="gpt-4o-mini",
+                    model=model,
                     messages=[
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_content},

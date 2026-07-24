@@ -32,7 +32,8 @@ async def run_query_guardrails(query: str, api_key: str | None = None) -> tuple[
             return False, "Prompt injection attempt detected."
         return True, ""
 
-    client = AsyncOpenAI(api_key=api_key)
+    from app.core.config import get_llm_client_and_model
+    client, model = get_llm_client_and_model(api_key, "gpt-3.5-turbo")
 
     try:
         # 2. LLM check for Prompt Injection & Out-of-Scope combined in a single fast, low-token call
@@ -45,7 +46,7 @@ async def run_query_guardrails(query: str, api_key: str | None = None) -> tuple[
         )
 
         response = await client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model=model,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": query}

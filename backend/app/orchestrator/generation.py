@@ -146,7 +146,8 @@ async def generate_response(
         return
 
     # 4. Live Stream calling OpenAI Chat Completions API
-    client = AsyncOpenAI(api_key=api_key)
+    from app.core.config import get_llm_client_and_model
+    client, model = get_llm_client_and_model(api_key, "gpt-4o-mini")
 
     messages = [{"role": "system", "content": system_prompt}]
     messages.extend(history_messages)
@@ -154,7 +155,7 @@ async def generate_response(
 
     try:
         response = await client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=model,
             messages=messages,
             temperature=0.0,
             stream=True,

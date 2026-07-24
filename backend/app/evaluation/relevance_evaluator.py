@@ -72,7 +72,8 @@ async def evaluate_relevance(
             "feedback_for_rewrite": "" if len(retrieved_chunks) > 0 else "needs search term adjustment",
         }
 
-    client = AsyncOpenAI(api_key=api_key)
+    from app.core.config import get_llm_client_and_model
+    client, model = get_llm_client_and_model(api_key, "gpt-4o-mini")
 
     chunks_text = "\n\n".join(
         [
@@ -102,7 +103,7 @@ async def evaluate_relevance(
 
     try:
         response = await client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=model,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_content},

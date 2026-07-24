@@ -64,8 +64,13 @@ async def test_mcp_server_rag_tool_smoke() -> None:
     embeddings = await embedding_provider.embed_documents(texts)
     await store.upsert_chunks(collection_name, chunks, embeddings)
 
-    # Call query_knowledge_base tool directly (coroutine)
-    res = await query_knowledge_base("Explain FastAPI routing", collection_name=collection_name)
+    # Call query_knowledge_base tool directly (coroutine) with mocked key
+    original_key = settings.LLM_API_KEY
+    settings.LLM_API_KEY = "placeholder_key"
+    try:
+        res = await query_knowledge_base("Explain FastAPI routing", collection_name=collection_name)
+    finally:
+        settings.LLM_API_KEY = original_key
 
     assert "FastAPI" in res
     assert "doc1" in res

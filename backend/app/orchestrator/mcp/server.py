@@ -38,7 +38,8 @@ async def summarize_rag_results(query: str, chunks: list, api_key: Optional[str]
             summary += f"- Found fact: {c.text} (Source: {c.source_filename})\n"
         return summary.strip()
 
-    client = AsyncOpenAI(api_key=api_key)
+    from app.core.config import get_llm_client_and_model
+    client, model = get_llm_client_and_model(api_key, "gpt-4o-mini")
 
     chunks_text = "\n\n".join(
         [
@@ -59,7 +60,7 @@ async def summarize_rag_results(query: str, chunks: list, api_key: Optional[str]
 
     try:
         response = await client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=model,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_content},
