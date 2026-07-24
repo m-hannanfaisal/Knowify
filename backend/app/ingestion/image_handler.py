@@ -66,10 +66,13 @@ async def generate_caption(image_path: str, api_key: str | None = None) -> str:
         is_groq = api_key.startswith("gsk_")
         if is_groq:
             base_url = "https://api.groq.com/openai/v1"
-            model = "llama-3.2-11b-vision-preview"
+            # Note: Groq's vision model lineup has changed multiple times.
+            # This is a preview model per Groq's own docs, so it may need updating again.
+            model = "qwen/qwen3.6-27b"
         else:
             base_url = "https://api.openai.com/v1"
             model = "gpt-4o-mini"
+
 
         client = AsyncOpenAI(api_key=api_key, base_url=base_url)
         response = await client.chat.completions.create(

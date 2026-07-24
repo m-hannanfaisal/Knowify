@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 import hashlib
+import asyncio
 from openai import AsyncOpenAI
+from sentence_transformers import SentenceTransformer
 
 from app.core.config import settings
 
@@ -51,33 +53,44 @@ class MockEmbeddingProvider(BaseEmbeddingProvider):
 
 
 class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
-    """Provides async embeddings via the OpenAI API client."""
+    """Provides embeddings via local SentenceTransformer or OpenAI client depending on API keys."""
 
     def __init__(self, api_key: str | None = None, model: str | None = None) -> None:
         self._api_key = api_key or settings.LLM_API_KEY
         
-        is_groq = self._api_key and self._api_key.startswith("gsk_")
-        if is_groq:
-            self.base_url = "https://api.groq.com/openai/v1"
-            self._model = model or "nomic-embed-text-v1.5"
+        # Use local sentence-transformers if using Groq (which lacks embedding endpoint) or placeholder key
+        is_local = (not self._api_key) or self._api_key == "placeholder_key" or self._api_key.startswith("gsk_")
+        
+        if is_local:
+            self._model = model or "all-MiniLM-L6-v2"
+            self._local_model = SentenceTransformer(self._model)
+            self._is_local = True
+            self.client = None
         else:
-            self.base_url = "https://api.openai.com/v1"
             self._model = model or "text-embedding-3-small"
-            
-        self.client = AsyncOpenAI(api_key=self._api_key, base_url=self.base_url)
+            self._is_local = False
+            self.client = AsyncOpenAI(api_key=self._api_key)
+
+        import structlog
+        logger = structlog.get_logger(__name__)
+        logger.info("embedding_model_initialized", provider="OpenAIEmbeddingProvider", model=self._model, is_local=self._is_local)
 
     @property
     def dimension(self) -> int:
-        if "nomic" in self._model:
-            return 768
+        if self._is_local:
+            return 384
         return 1536
-
 
     async def embed_documents(self, texts: list[str]) -> list[list[float]]:
         if not texts:
             return []
-        response = await self.client.embeddings.create(
-            input=texts,
-            model=self._model
-        )
-        return [data.embedding for data in response.data]
+        if self._is_local:
+            # Offload blocking CPU-bound local model inference to background threads
+            embeddings = await asyncio.to_thread(self._local_model.encode, texts)
+            return [e.tolist() for e in embeddings]
+        else:
+            response = await self.client.embeddings.create(
+                input=texts,
+                model=self._model
+            )
+            return [data.embedding for data in response.data]

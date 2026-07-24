@@ -191,7 +191,7 @@ async def upload_file(
 
         if ext in ["jpg", "jpeg", "png"]:
             chunks_count = await ingest_image(
-                file_path=temp_file_path,
+                image_path=temp_file_path,
                 collection_name=collection_name,
                 embedding_provider=emb,
                 api_key=settings.LLM_API_KEY,

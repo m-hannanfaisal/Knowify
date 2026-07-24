@@ -1,6 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, patch, ANY
 
 from app.main import app
 
@@ -10,6 +10,9 @@ client = TestClient(app)
 @pytest.mark.asyncio
 async def test_chat_endpoint_stream() -> None:
     """Test the POST /chat SSE streaming endpoint with mocked downstream services."""
+    from app.core.cache import cache
+    await cache.delete("history:default_user:session_api_123")
+    await cache.delete("query:default_user:Explain FastAPI async")
     # Define custom async generator to simulate generate_response yields
     async def mock_response_generator(*args, **kwargs):
         yield {"type": "token", "text": "FastAPI is "}
@@ -75,7 +78,12 @@ async def test_upload_file_endpoint() -> None:
         data = response.json()
         assert data["filename"] == "test_doc.docx"
         assert data["chunks_processed"] == 5
-        mock_embed.assert_called_once()
+        mock_embed.assert_called_once_with(
+            file_path=ANY,
+            collection_name="test_collection",
+            embedding_provider=ANY,
+            qdrant_url=ANY,
+        )
 
     # 2. Test image file upload (routed to ingest_image)
     with patch("app.api.router.ingest_image", new_callable=AsyncMock) as mock_ingest_image:
@@ -88,7 +96,13 @@ async def test_upload_file_endpoint() -> None:
         data = response.json()
         assert data["filename"] == "chart.png"
         assert data["chunks_processed"] == 1
-        mock_ingest_image.assert_called_once()
+        mock_ingest_image.assert_called_once_with(
+            image_path=ANY,
+            collection_name="test_collection",
+            embedding_provider=ANY,
+            api_key=ANY,
+            qdrant_url=ANY,
+        )
 
 
 def test_get_nonexistent_conversation() -> None:

@@ -43,3 +43,23 @@ class Settings(BaseSettings):
 
 # Instantiate settings to be imported across the application
 settings = Settings()
+
+
+def get_llm_client_and_model(api_key: str | None = None, default_model: str = "gpt-4o-mini") -> tuple:
+    """Returns a tuple of (AsyncOpenAI client, model_name).
+
+    Automatically configures for Groq if key starts with 'gsk_'.
+    """
+    from openai import AsyncOpenAI
+    key = api_key or settings.LLM_API_KEY
+    if key and key.startswith("gsk_"):
+        client = AsyncOpenAI(api_key=key, base_url="https://api.groq.com/openai/v1")
+        if "gpt" in default_model or default_model in ["gpt-4o-mini", "gpt-3.5-turbo"]:
+            model = "llama-3.1-8b-instant"
+        else:
+            model = default_model
+        return client, model
+    else:
+        client = AsyncOpenAI(api_key=key)
+        return client, default_model
+
