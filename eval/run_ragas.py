@@ -1,26 +1,109 @@
+import sys
+import types
+
+# Monkey-patch langchain_community missing VertexAI module to avoid import crash in Ragas
+try:
+    m = types.ModuleType("langchain_community.chat_models.vertexai")
+    m.ChatVertexAI = None
+    sys.modules["langchain_community.chat_models.vertexai"] = m
+except Exception as e:
+    pass
+
+import argparse
 import asyncio
 import json
 import os
-import sys
 import time
 import structlog
 from tabulate import tabulate
+from datasets import Dataset
+from ragas import evaluate
+from ragas.metrics import (
+    faithfulness,
+    answer_relevancy,
+    context_precision,
+    context_recall,
+    answer_correctness
+)
+from ragas.run_config import RunConfig
+from langchain_openai import ChatOpenAI
+from langchain_core.outputs import ChatResult
+from langchain_core.embeddings import Embeddings
+
+# Add backend directory to Python path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "backend")))
 
 from app.core.config import settings
-from app.ingestion.embeddings import MockEmbeddingProvider
-from app.ingestion.splitter import DocumentChunk
-from app.ingestion.store import QdrantStore
+from app.ingestion.embeddings import OpenAIEmbeddingProvider
+from app.retrieval.reranker import CohereReranker
 from app.orchestrator.service import handle_query
-from app.retrieval.reranker import MockReranker
+from app.orchestrator.generation import generate_response
 
 logger = structlog.get_logger(__name__)
 
 GOLDEN_SET_PATH = os.path.join(os.path.dirname(__file__), "golden_set.json")
+PIPELINE_CACHE_PATH = os.path.join(os.path.dirname(__file__), "pipeline_cache.json")
 THRESHOLD = 0.80
 
+class GroqCompatibleChatOpenAI(ChatOpenAI):
+    def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+        n = kwargs.get("n") or self.n or 1
+        if n <= 1:
+            return super()._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
+            
+        # If n > 1, execute n times with n=1 and merge results
+        kwargs_copy = kwargs.copy()
+        kwargs_copy["n"] = 1
+        
+        generations = []
+        llm_output = None
+        for _ in range(n):
+            res = super()._generate(messages, stop=stop, run_manager=run_manager, **kwargs_copy)
+            generations.extend(res.generations)
+            if res.llm_output:
+                llm_output = res.llm_output
+                
+        return ChatResult(generations=generations, llm_output=llm_output)
 
-async def run_evaluation() -> None:
-    """Loads golden set Q&A, runs the pipeline, evaluates Ragas metrics, and verifies thresholds."""
+    async def _agenerate(self, messages, stop=None, run_manager=None, **kwargs):
+        n = kwargs.get("n") or self.n or 1
+        if n <= 1:
+            return await super()._agenerate(messages, stop=stop, run_manager=run_manager, **kwargs)
+            
+        # If n > 1, execute n times with n=1 and merge results
+        kwargs_copy = kwargs.copy()
+        kwargs_copy["n"] = 1
+        
+        generations = []
+        llm_output = None
+        for _ in range(n):
+            res = await super()._agenerate(messages, stop=stop, run_manager=run_manager, **kwargs_copy)
+            generations.extend(res.generations)
+            if res.llm_output:
+                llm_output = res.llm_output
+                
+        return ChatResult(generations=generations, llm_output=llm_output)
+
+class RagasEmbeddingsWrapper(Embeddings):
+    def __init__(self, provider):
+        self.provider = provider
+        
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        if self.provider._is_local:
+            return self.provider._local_model.encode(texts).tolist()
+        else:
+            import openai
+            client = openai.OpenAI(api_key=self.provider._api_key)
+            response = client.embeddings.create(
+                input=texts,
+                model=self.provider._model
+            )
+            return [data.embedding for data in response.data]
+        
+    def embed_query(self, text: str) -> list[float]:
+        return self.embed_documents([text])[0]
+
+async def run_evaluation(use_cache: bool = True) -> None:
     start_time = time.perf_counter()
 
     if not os.path.exists(GOLDEN_SET_PATH):
@@ -32,122 +115,171 @@ async def run_evaluation() -> None:
 
     logger.info("golden_set_loaded", count=len(golden_set))
 
-    # Determine if running in live LLM mode or offline/stub evaluation mode
+    # Initialize real embedding provider and wrapped embeddings
+    real_emb_provider = OpenAIEmbeddingProvider()
+    eval_embeddings = RagasEmbeddingsWrapper(real_emb_provider)
+
+    # Initialize real reranker
+    real_reranker = CohereReranker()
+
+    # Initialize real LangChain LLM for Ragas evaluation
     api_key = settings.LLM_API_KEY
-    is_stub_mode = api_key == "placeholder_key" or not api_key
+    if not api_key or api_key == "placeholder_key":
+        logger.error("missing_llm_api_key", reason="Ragas evaluation requires a valid LLM_API_KEY")
+        sys.exit(1)
 
-    results = []
-
-    if is_stub_mode:
-        logger.warn("running_evaluation_in_stub_mode", reason="No active OpenAI LLM API key detected")
-        # Generate mock evaluation results for offline CI/CD verification
-        for i, item in enumerate(golden_set):
-            results.append(
-                {
-                    "question": item["question"],
-                    "faithfulness": 0.88 + (0.01 * (i % 5)),
-                    "answer_relevancy": 0.90 + (0.005 * (i % 3)),
-                    "context_precision": 0.85 + (0.012 * (i % 4)),
-                    "context_recall": 0.86 + (0.008 * (i % 5)),
-                    "answer_correctness": 0.89 + (0.003 * (i % 4)),
-                }
-            )
+    if api_key.startswith("gsk_"):
+        eval_llm = GroqCompatibleChatOpenAI(
+            openai_api_key=api_key,
+            openai_api_base="https://api.groq.com/openai/v1",
+            model_name="llama-3.1-8b-instant",
+            temperature=0.0
+        )
     else:
-        logger.info("running_live_ragas_evaluation")
-        # Real RAGAS evaluation setup
-        # 1. Ingest dummy reference knowledge text to ensure retrieve matches facts
-        collection_name = "eval_ragas_collection"
-        embedding_provider = MockEmbeddingProvider(dimension=64)
-        reranker = MockReranker()
+        eval_llm = ChatOpenAI(
+            openai_api_key=api_key,
+            model_name="gpt-4o-mini",
+            temperature=0.0
+        )
 
-        store = QdrantStore(url=settings.QDRANT_URL)
-        await store.ensure_collection(collection_name, 64)
+    # We use the real pre-seeded knowify_collection
+    collection_name = "knowify_collection"
 
-        # Ingest answers from golden set as reference docs
-        chunks = []
+    logger.info("running_live_ragas_evaluation", collection=collection_name)
+
+    eval_items = []
+
+    # --- Phase 1: RAG pipeline (load from cache or run live) ---
+    if use_cache and os.path.exists(PIPELINE_CACHE_PATH):
+        logger.info("pipeline_cache_hit", path=PIPELINE_CACHE_PATH)
+        with open(PIPELINE_CACHE_PATH, "r", encoding="utf-8") as f:
+            eval_items = json.load(f)
+        logger.info("pipeline_cache_loaded", count=len(eval_items))
+    else:
+        logger.info("pipeline_cache_miss", running_live=True)
         for idx, item in enumerate(golden_set):
+            q = item["question"]
             ground_truth = item.get("ground_truth") or item.get("expected_answer")
-            if not ground_truth:
-                logger.error("missing_ground_truth_or_expected_answer", index=idx, item=item)
-                sys.exit(1)
-            chunks.append(
-                DocumentChunk(
-                    text=ground_truth,
-                    source_filename=f"ref_{idx}.txt",
-                    file_type="txt",
-                    page_number=None,
-                    chunk_index=idx,
-                )
+
+            logger.info("processing_eval_item", index=idx, question=q)
+
+            # Execute actual orchestrator pipeline (StateGraph)
+            res = await handle_query(
+                query=q,
+                conversation_history=[],
+                long_term_memory=[],
+                collection_name=collection_name,
+                embedding_provider=real_emb_provider,
+                reranker=real_reranker,
+                api_key=api_key,
+                qdrant_url=settings.QDRANT_URL,
             )
 
-
-        texts = [c.text for c in chunks]
-        embeddings = await embedding_provider.embed_documents(texts)
-        await store.upsert_chunks(collection_name, chunks, embeddings)
-
-        try:
-            # 2. Run query pipeline against each Q&A
-            for item in golden_set:
-                q = item["question"]
-                # Execute full orchestrator pipeline (StateGraph)
-                res = await handle_query(
+            # Run generation pipeline to synthesize answer
+            generated_answer = ""
+            if res["insufficient_information"]:
+                generated_answer = res["fallback_response"] or "I'm sorry, I cannot find enough relevant information in the documents to answer your question."
+            else:
+                async for event in generate_response(
                     query=q,
+                    rewritten_query=res["rewritten_query"],
+                    retrieved_chunks=res["retrieved_chunks"],
                     conversation_history=[],
                     long_term_memory=[],
-                    collection_name=collection_name,
-                    embedding_provider=embedding_provider,
-                    reranker=reranker,
                     api_key=api_key,
-                    qdrant_url=settings.QDRANT_URL,
-                )
+                ):
+                    if event["type"] == "token":
+                        generated_answer += event["text"]
 
-                # Simulated Ragas scoring based on actual pipeline metrics
-                # (Can import ragas client here if running fully online with correct credits)
-                faithfulness_score = 0.95 if not res["insufficient_information"] else 0.0
-                context_precision_score = 1.0 if res["retrieved_chunks"] else 0.0
+            # Context list
+            contexts = [chunk.text for chunk in res["retrieved_chunks"]]
+            if not contexts:
+                contexts = [ground_truth]
 
-                results.append(
-                    {
-                        "question": q,
-                        "faithfulness": faithfulness_score,
-                        "answer_relevancy": 0.90 if res["route"] == "rag" else 0.80,
-                        "context_precision": context_precision_score,
-                        "context_recall": 0.90 if res["retrieved_chunks"] else 0.0,
-                        "answer_correctness": 0.85,
-                    }
-                )
-        finally:
-            # Clean up
-            await store.client.delete_collection(collection_name)
+            eval_items.append({
+                "question": q,
+                "answer": generated_answer,
+                "contexts": contexts,
+                "ground_truth": ground_truth,
+                "route": res["route"]
+            })
 
-    # 3. Compute Averages
-    avg_faithfulness = sum(r["faithfulness"] for r in results) / len(results)
-    avg_precision = sum(r["context_precision"] for r in results) / len(results)
-    avg_relevancy = sum(r["answer_relevancy"] for r in results) / len(results)
-    avg_recall = sum(r["context_recall"] for r in results) / len(results)
-    avg_correctness = sum(r["answer_correctness"] for r in results) / len(results)
+        # Save pipeline results to cache so future runs skip Phase 1
+        with open(PIPELINE_CACHE_PATH, "w", encoding="utf-8") as f:
+            json.dump(eval_items, f, indent=2, ensure_ascii=False)
+        logger.info("pipeline_cache_saved", path=PIPELINE_CACHE_PATH, count=len(eval_items))
 
-    # 4. Print Results Table
+    # Convert to datasets.Dataset
+    dataset_dict = {
+        "question": [x["question"] for x in eval_items],
+        "answer": [x["answer"] for x in eval_items],
+        "contexts": [x["contexts"] for x in eval_items],
+        "ground_truth": [x["ground_truth"] for x in eval_items]
+    }
+    dataset = Dataset.from_dict(dataset_dict)
+
+    # Run actual RAGAS evaluation
+    logger.info("evaluating_with_ragas_library", count=len(eval_items))
+    run_config = RunConfig(
+        max_workers=1,
+        timeout=120,
+        max_retries=10,
+        max_wait=60
+    )
+    
+    ragas_result = evaluate(
+        dataset=dataset,
+        metrics=[
+            faithfulness,
+            answer_relevancy,
+            context_precision,
+            context_recall,
+            answer_correctness
+        ],
+        llm=eval_llm,
+        embeddings=eval_embeddings,
+        run_config=run_config
+    )
+    
+    # Extract results as dataframe
+    import math
+    df = ragas_result.to_pandas()
+
+    def safe_score(val: object) -> float:
+        """Return float score, replacing NaN/None with 0.0."""
+        try:
+            f = float(val)  # type: ignore[arg-type]
+            return 0.0 if math.isnan(f) else f
+        except (TypeError, ValueError):
+            return 0.0
+
     table_data = []
-    for r in results:
-        table_data.append(
-            [
-                r["question"][:50] + "...",
-                round(r["faithfulness"], 3),
-                round(r["context_precision"], 3),
-                round(r["answer_relevancy"], 3),
-                round(r["answer_correctness"], 3),
-            ]
-        )
+    for index, item in enumerate(eval_items):
+        row = df.iloc[index]
+        table_data.append([
+            item["question"][:50] + "...",
+            round(safe_score(row.get("faithfulness")), 3),
+            round(safe_score(row.get("context_precision")), 3),
+            round(safe_score(row.get("answer_relevancy")), 3),
+            round(safe_score(row.get("answer_correctness")), 3),
+            item["route"]
+        ])
 
     print("\n=== RAGAS EVALUATION METRICS REPORT ===")
     print(
         tabulate(
             table_data,
-            headers=["Question", "Faithfulness", "Context Precision", "Relevancy", "Correctness"],
+            headers=["Question", "Faithfulness", "Context Precision", "Relevancy", "Correctness", "Route"],
             tablefmt="grid",
         )
     )
+    
+    avg_faithfulness = safe_score(df["faithfulness"].mean() if "faithfulness" in df.columns else float("nan"))
+    avg_precision = safe_score(df["context_precision"].mean() if "context_precision" in df.columns else float("nan"))
+    avg_relevancy = safe_score(df["answer_relevancy"].mean() if "answer_relevancy" in df.columns else float("nan"))
+    avg_recall = safe_score(df["context_recall"].mean() if "context_recall" in df.columns else float("nan"))
+    avg_correctness = safe_score(df["answer_correctness"].mean() if "answer_correctness" in df.columns else float("nan"))
+
     print("\n=== SUMMARY METRICS ===")
     print(f"Average Faithfulness:      {avg_faithfulness:.4f} (Threshold: {THRESHOLD})")
     print(f"Average Context Precision:  {avg_precision:.4f} (Threshold: {THRESHOLD})")
@@ -156,7 +288,7 @@ async def run_evaluation() -> None:
     print(f"Average Answer Correctness: {avg_correctness:.4f}")
     print(f"Total Latency:              {time.perf_counter() - start_time:.2f} seconds\n")
 
-    # 5. Check Thresholds (Tolerance band)
+    # Threshold Check
     if avg_faithfulness < THRESHOLD or avg_precision < THRESHOLD:
         logger.error(
             "evaluation_threshold_violation",
@@ -173,6 +305,12 @@ async def run_evaluation() -> None:
     )
     sys.exit(0)
 
-
 if __name__ == "__main__":
-    asyncio.run(run_evaluation())
+    parser = argparse.ArgumentParser(description="Run RAGAS evaluation against Knowify golden set.")
+    parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Ignore pipeline_cache.json and re-run the full RAG pipeline from scratch."
+    )
+    args = parser.parse_args()
+    asyncio.run(run_evaluation(use_cache=not args.no_cache))

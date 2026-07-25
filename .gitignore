@@ -159,3 +159,8 @@ README.md
 # Local database storage
 backend/data/
 
+# Root-level Qdrant local data directory
+data/
+
+# RAGAS pipeline answer cache (environment-specific, regenerated on each run)
+eval/pipeline_cache.json

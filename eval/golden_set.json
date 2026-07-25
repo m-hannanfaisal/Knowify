@@ -1,32 +1,50 @@
 [
-  {"question": "How to register the Knowify RAG server in Claude Desktop?", "ground_truth": "Add a block to the mcpServers configuration inside claude_desktop_config.json specifying docker exec -i knowify-api-1 python -m app.orchestrator.mcp.server command."},
-  {"question": "What is the default port for Qdrant database?", "ground_truth": "The default port for Qdrant vector database is 6333."},
-  {"question": "How do you specify local embedded mode for Qdrant?", "ground_truth": "Set QDRANT_MODE=local in the environment variable configurations."},
-  {"question": "Where does Qdrant store its database files in local mode?", "ground_truth": "It stores database files under the directory path data/qdrant_local."},
-  {"question": "Which LangChain document loader parses DOCX files?", "ground_truth": "Docx2txtLoader is used to parse DOCX documents in parser.py."},
-  {"question": "Which LangChain loader handles PDF files?", "ground_truth": "PyPDFLoader is used to handle PDF parsing in parser.py."},
-  {"question": "What happens when relevance evaluation fails twice in the orchestrator?", "ground_truth": "The pipeline exhausts its retries and triggers a safe fallback message indicating insufficient information."},
-  {"question": "How is cache enabled in memory mode?", "ground_truth": "Set CACHE_MODE=memory in backend configurations to use the in-memory cache dict."},
-  {"question": "Which decorator is used to trace calls in LangSmith?", "ground_truth": "@traceable decorator from langsmith is used around LLM and retrieval calls."},
-  {"question": "What is the threshold for duplicate detection in long-term memory consolidation?", "ground_truth": "The cosine similarity threshold threshold is set to 0.82 in consolidate_memories."},
-  {"question": "What format does the generation module use for inline citations?", "ground_truth": "It uses the [source: filename, page/chunk] format inline."},
-  {"question": "What endpoint exposes retrieval hit rates and average faithfulness?", "ground_truth": "The /metrics FastAPI endpoint exposes these details."},
-  {"question": "How does TraceIdMiddleware generate IDs if X-Trace-ID header is missing?", "ground_truth": "It generates a new UUID using the uuid.uuid4() function."},
-  {"question": "Which loader does HTML document ingestion use?", "ground_truth": "BSHTMLLoader is used to load and parse HTML documents."},
-  {"question": "What model does query_knowledge_base use for final answer synthesis?", "ground_truth": "It uses OpenAI gpt-4o-mini to compile the grounded cited answer."},
-  {"question": "Which class represents retrieved documents inside retrieval service?", "ground_truth": "RetrievedChunk represents retrieved documents in models.py."},
-  {"question": "How does the in-memory cache delete keys?", "ground_truth": "It calls self._cache.pop(key, None) to delete keys from the dictionary."},
-  {"question": "How are concurrent Qdrant client SQLite locks avoided in local mode?", "ground_truth": "A global connection singleton get_qdrant_client() is used to share one client instance."},
-  {"question": "What Python framework is used to build the RAG MCP server?", "ground_truth": "FastMCP from the mcp SDK is used to build the server."},
-  {"question": "What is the default max retries limit in the orchestrator?", "ground_truth": "The default retry limit is 2."},
-  {"question": "How does the router node classify queries?", "ground_truth": "An LLM call classifies the query to RAG, direct, or web_search routes."},
-  {"question": "Where are global rules defined in the customizations?", "ground_truth": "Global rules are appended to AGENTS.md in the global config directory."},
-  {"question": "Which class offloads Redis Cache operations to thread pools?", "ground_truth": "RedisCache offloads blocking synchronous redis operations using asyncio.to_thread."},
-  {"question": "What is the maximum chunk overlap default setting in parser.py?", "ground_truth": "The default overlap size is 50 tokens."},
-  {"question": "How does the relevance evaluator judge chunks?", "ground_truth": "It uses structured JSON output to evaluate if chunks are sufficient to answer the query."},
-  {"question": "What library is used for structured logging?", "ground_truth": "The structlog library is used for structured JSON logging."},
-  {"question": "Which standard files does gitignore filter out from development?", "ground_truth": "It filters out backend/data/ directory containing local database files."},
-  {"question": "Which class represents the agent state in LangGraph orchestrator?", "ground_truth": "AgentState TypedDict tracks state elements between node functions."},
-  {"question": "What does web_search return on query containing weather when offline?", "ground_truth": "It returns a mock BBC weather result for Paris."},
-  {"question": "What tool runs the evaluation Q&A golden set pipeline?", "ground_truth": "eval/run_ragas.py executes the golden set validation pipeline."}
+  {
+    "question": "What are the contact limits and user seat limits for the Starter plan?",
+    "ground_truth": "The Starter plan includes up to 1,000 contacts and 3 user seats."
+  },
+  {
+    "question": "What is the status code and signature mismatch details for the failed webhook in the Developer Console screenshot?",
+    "ground_truth": "The failed webhook returned HTTP Status 401 Unauthorized with a signature_verification_error, where the sent signature was 'alf9c3...e0221b' and the computed signature was '88d02a...9f4310'."
+  },
+  {
+    "question": "What is the data retention period if a customer cancels their subscription?",
+    "ground_truth": "Data is retained for 90 days after cancellation to allow reactivation, after which it is permanently deleted."
+  },
+  {
+    "question": "Which plans have API access and custom fields limits?",
+    "ground_truth": "API access is available on the Professional and Enterprise plans. Starter allows 5 custom fields, Professional allows 20, and Enterprise is unlimited."
+  },
+  {
+    "question": "How many times does AcmeCRM retry a failed webhook delivery and with what backoff?",
+    "ground_truth": "Webhook deliveries are retried up to 5 times with exponential backoff as of version v3.4.0."
+  },
+  {
+    "question": "What encryption standards are used for data at rest and in transit?",
+    "ground_truth": "Data is encrypted at rest using AES-256 and in transit using TLS 1.2 or higher."
+  },
+  {
+    "question": "What is the default stage sequence of a deal pipeline in AcmeCRM?",
+    "ground_truth": "The default deal pipeline sequence is New, Qualified, Proposal, Negotiation, Closed Won, Closed Lost."
+  },
+  {
+    "question": "Which billing and data sync integrations are available, and what are their required plans?",
+    "ground_truth": "Stripe billing integration requires the Enterprise plan. Salesforce Sync data sync integration also requires the Enterprise plan."
+  },
+  {
+    "question": "When was SAML 2.0 SSO support introduced and for which plan?",
+    "ground_truth": "SSO support via SAML 2.0 was introduced in version v3.2.0 on 2025-12-05 for the Enterprise plan."
+  },
+  {
+    "question": "How long does the webhook endpoint have to respond before AcmeCRM treats the delivery as failed?",
+    "ground_truth": "The webhook endpoint has 10 seconds to respond. If it takes longer, AcmeCRM treats the delivery as failed and retries."
+  },
+  {
+    "question": "What are the common causes for webhook signature verification failure?",
+    "ground_truth": "Common causes are using the wrong signing secret, hashing a re-serialized or parsed body instead of raw bytes, or server clock skew causing payloads to be rejected as too old."
+  },
+  {
+    "question": "What are the support response times for the Starter, Professional, and Enterprise plans?",
+    "ground_truth": "Support response times are 48 hours for Starter, 24 hours (priority support) for Professional, and a 4-hour SLA (dedicated support) for Enterprise."
+  }
 ]

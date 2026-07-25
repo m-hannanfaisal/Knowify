@@ -1,0 +1,11 @@
+integration_name,category,min_plan_required,setup_method,status
+Zapier,Automation,Professional,API Key,Active
+Slack,Notifications,Starter,OAuth,Active
+Gmail,Email Sync,Starter,OAuth,Active
+Outlook,Email Sync,Starter,OAuth,Active
+Segment,Analytics,Professional,Webhook,Active
+Stripe,Billing,Enterprise,API Key,Active
+HubSpot Forms,Lead Capture,Professional,API Key,Beta
+Twilio,SMS,Enterprise,API Key,Active
+Calendly,Scheduling,Starter,OAuth,Active
+Salesforce Sync,Data Sync,Enterprise,API Key,Beta

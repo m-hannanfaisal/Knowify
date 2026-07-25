@@ -39,10 +39,18 @@ async def route_query(
 
     system_prompt = (
         "You are an intelligent query router in a multi-step RAG chatbot pipeline.\n"
+        "The knowledge base contains ingested product documentation including text files, PDFs, "
+        "spreadsheets, and images/screenshots that have been OCR-processed into text.\n"
         "Analyze the user query and classify it into exactly one of three categories:\n"
-        "1. 'rag': The query requires looking up specific documents, technical manuals, codebase docs, or context stored in the knowledge base.\n"
-        "2. 'direct': General knowledge questions, chit-chat, greetings, generic coding snippets, or questions answerable without external database or internet queries.\n"
-        "3. 'web_search': Queries about current events, real-time facts, current news, sports scores, or information requiring live internet access.\n"
+        "1. 'rag': The query asks about a specific product, service, brand, company, or any "
+        "proprietary system (e.g. AcmeCRM, internal tools, screenshots from a specific application, "
+        "technical manuals, policies, or anything that would require looking up stored documentation). "
+        "If the query mentions a proper noun, product name, or visual artifact (screenshot, image, "
+        "console output) from a specific application, always choose 'rag'.\n"
+        "2. 'direct': Pure general knowledge questions, chit-chat, greetings, or generic coding "
+        "questions that are completely unrelated to any specific product or stored document.\n"
+        "3. 'web_search': Queries about current events, real-time facts, live news, sports scores, "
+        "or information that requires live internet access and changes over time.\n"
         "Provide exactly one of the three options: 'rag', 'direct', or 'web_search'. Do not include any other words."
     )
 
