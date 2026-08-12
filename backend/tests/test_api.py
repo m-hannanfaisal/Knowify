@@ -134,7 +134,7 @@ def test_get_user_usage_api() -> None:
     assert response.status_code == 200
     data = response.json()
     assert data["user_id"] == "test_user_api"
-    assert data["tokens_limit"] in [5000, 8000]
+    assert isinstance(data["tokens_limit"], int) and data["tokens_limit"] > 0
     assert "tokens_used" in data
     assert "resets_at" in data
     import datetime

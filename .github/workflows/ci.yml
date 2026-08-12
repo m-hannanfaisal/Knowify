@@ -84,6 +84,12 @@ jobs:
             raise RuntimeError('Redis service failed to respond to PING within 60s.')
         "
 
+    - name: Pre-generate test fixtures
+      env:
+        PYTHONPATH: backend:.
+      run: |
+        python backend/tests/generate_fixtures.py
+
     - name: Run tests
       env:
         QDRANT_URL: http://localhost:6333
