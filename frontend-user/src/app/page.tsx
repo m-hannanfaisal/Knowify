@@ -248,11 +248,34 @@ export default function Home() {
     }
   };
 
-  // Inline citations chip popover renderer
+  // Parse **bold**, *italic*, `code` and line-breaks in a plain text segment
+  const parseInlineMd = (text: string, keyPrefix: string): React.ReactNode[] => {
+    const result: React.ReactNode[] = [];
+    const lines = text.split("\n");
+    lines.forEach((line, lineIdx) => {
+      if (lineIdx > 0) result.push(<br key={`br-${keyPrefix}-${lineIdx}`} />);
+      const mdRegex = /\*\*([^*]+)\*\*|`([^`]+)`|\*([^*]+)\*/g;
+      let cursor = 0;
+      let m: RegExpExecArray | null;
+      while ((m = mdRegex.exec(line)) !== null) {
+        if (m.index > cursor) result.push(line.slice(cursor, m.index));
+        if (m[1] !== undefined)
+          result.push(<strong key={`${keyPrefix}-b${m.index}-${lineIdx}`}>{m[1]}</strong>);
+        else if (m[2] !== undefined)
+          result.push(<code key={`${keyPrefix}-c${m.index}-${lineIdx}`} style={{ background: "#1e2120", padding: "1px 5px", borderRadius: 4, fontSize: "0.9em" }}>{m[2]}</code>);
+        else
+          result.push(<em key={`${keyPrefix}-i${m.index}-${lineIdx}`}>{m[3]}</em>);
+        cursor = mdRegex.lastIndex;
+      }
+      if (cursor < line.length) result.push(line.slice(cursor));
+    });
+    return result;
+  };
+
+  // Inline citations chip popover renderer (with inline markdown in text segments)
   const renderMessageContent = (msg: Message, messageIndex: number) => {
     const content = msg.content;
-    const citations = msg.citations || [];
-    const parts = [];
+    const parts: React.ReactNode[] = [];
     const regex = /\[source:\s*([^,\]]+),\s*([^\]]+)\]/g;
     let lastIndex = 0;
     let match;
@@ -263,14 +286,15 @@ export default function Home() {
       const location = match[2].trim();
 
       if (match.index > lastIndex) {
-        parts.push(content.substring(lastIndex, match.index));
+        const seg = content.substring(lastIndex, match.index);
+        parts.push(...parseInlineMd(seg, `${messageIndex}-s${lastIndex}`));
       }
 
       const currentChipIndex = chipIndex++;
       const popoverKey = `${messageIndex}-${match.index}`;
 
       parts.push(
-        <div key={popoverKey} className="citation-chip-container">
+        <span key={popoverKey} className="citation-chip-container" style={{ display: "inline" }}>
           <span
             className="citation-chip"
             onClick={(e) => {
@@ -286,14 +310,14 @@ export default function Home() {
               <div className="citation-popover-location">{location}</div>
             </div>
           )}
-        </div>
+        </span>
       );
 
       lastIndex = regex.lastIndex;
     }
 
     if (lastIndex < content.length) {
-      parts.push(content.substring(lastIndex));
+      parts.push(...parseInlineMd(content.substring(lastIndex), `${messageIndex}-tail`));
     }
 
     return parts.length > 0 ? parts : content;
@@ -453,7 +477,7 @@ export default function Home() {
           <div className="input-pill-wrapper">
             <input
               className="input-pill"
-              placeholder={isLimitReached ? `Token limit reached — ${formatResetsAt(usage.resets_at)}` : "Ask anything..."}
+              placeholder={isLimitReached ? `Token limit reached â€” ${formatResetsAt(usage.resets_at)}` : "Ask anything..."}
               value={inputVal}
               onChange={(e) => setInputVal(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSend(inputVal)}
