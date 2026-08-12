@@ -206,7 +206,7 @@ export default function Home() {
                   const updated = [...prev];
                   const last = updated[updated.length - 1];
                   if (last && last.role === "assistant") {
-                    last.content += payload.text;
+                    updated[updated.length - 1] = { ...last, content: last.content + payload.text };
                   }
                   return updated;
                 });
@@ -215,7 +215,7 @@ export default function Home() {
                   const updated = [...prev];
                   const last = updated[updated.length - 1];
                   if (last && last.role === "assistant") {
-                    last.citations = payload.citations;
+                    updated[updated.length - 1] = { ...last, citations: payload.citations };
                   }
                   return updated;
                 });
