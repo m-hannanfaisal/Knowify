@@ -1,4 +1,4 @@
-<div align="center">
+<div align="center"> 
 
 # 🟢 Knowify
 
@@ -17,7 +17,7 @@ Point Knowify at any product's docs — PDFs, API references, spreadsheets, FAQs
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Tests](https://github.com/m-hannanfaisal/Knowify/actions/workflows/ci.yml/badge.svg)](https://github.com/m-hannanfaisal/Knowify/actions/workflows/ci.yml)
 
-**[⚡ Run it locally ↓](#getting-started)** &nbsp;·&nbsp; **[See it in action ↓](#see-it-in-action)** &nbsp;·&nbsp; **[Try the demo dataset ↓](#try-it-yourself-the-acmecrm-demo)**
+<!--**[⚡ Run it locally ↓](#getting-started)** &nbsp;·&nbsp; **[See it in action ↓](#see-it-in-action)** &nbsp;·&nbsp; **[Try the demo dataset ↓](#try-it-yourself-the-acmecrm-demo)**-->
 
 </div>
 
@@ -40,8 +40,14 @@ Point Knowify at any product's docs — PDFs, API references, spreadsheets, FAQs
 </div>
 
 ---
+##user interface
+
+<div align="center">
+<img src="./docs/assets/display.jpeg" alt="Knowify Chat Interface" width="750">
+</div>
 
 ---
+
 
 ## Architecture
 
