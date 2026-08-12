@@ -47,7 +47,7 @@ jobs:
 
         print('=== Polling Qdrant and Redis for Application Readiness ===')
 
-        # 1. Qdrant HTTP GET readiness check (Qdrant root API endpoint)
+        # 1. Qdrant HTTP GET readiness check
         qdrant_ok = False
         for attempt in range(1, 31):
             try:
@@ -88,8 +88,9 @@ jobs:
       env:
         QDRANT_URL: http://localhost:6333
         REDIS_URL: redis://localhost:6379/0
-        QDRANT_MODE: docker
-        CACHE_MODE: redis
+        QDRANT_MODE: local
+        QDRANT_LOCAL_PATH: /tmp/qdrant_ci
+        CACHE_MODE: memory
         LLM_API_KEY: placeholder_key
         PYTHONPATH: backend:.
       run: |
