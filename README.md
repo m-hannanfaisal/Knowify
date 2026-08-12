@@ -17,7 +17,7 @@ Point Knowify at any product's docs — PDFs, API references, spreadsheets, FAQs
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Tests](https://github.com/m-hannanfaisal/Knowify/actions/workflows/ci.yml/badge.svg)](https://github.com/m-hannanfaisal/Knowify/actions/workflows/ci.yml)
 
-<!-- **[⚡ Run it locally ↓](#getting-started)** &nbsp;·&nbsp; **[See it in action ↓](#see-it-in-action)** &nbsp;·&nbsp; **[Try the demo dataset ↓](#try-it-yourself-the-acmecrm-demo)** -->
+**[⚡ Run it locally ↓](#getting-started)** &nbsp;·&nbsp; **[See it in action ↓](#see-it-in-action)** &nbsp;·&nbsp; **[Try the demo dataset ↓](#try-it-yourself-the-acmecrm-demo)**
 
 </div>
 
@@ -33,18 +33,13 @@ Point Knowify at any product's docs — PDFs, API references, spreadsheets, FAQs
 - **Guards its own output.** Input checks catch injection/leak attempts before they reach the pipeline; output is refused rather than shown if its own faithfulness score drops too low.
 - **Ships with a live admin dashboard** — trace every conversation step-by-step, track token usage and cost per user, manage the document library, and inspect what the system has "remembered."
 - **Plugs into your existing AI tools** via MCP — Knowify's retrieval pipeline can be exposed as a tool inside Claude Desktop, Claude Code, or any MCP-compatible agent.
-<!-- 
 ## See It In Action
 
 <div align="center">
-<img src="./docs/assets/chat-demo.gif" alt="Knowify chat UI showing a question, streamed answer, and inline citation" width="700">
+<img src="./docs/assets/demo.gif" alt="Knowify Chat Interface Demo" width="750">
 </div>
 
-**Example, from the included demo:**
-
-> **User:** "Why is webhook verification failing?"
-> **Knowify:** "The most common causes are using the wrong signing secret, hashing a re-serialized body instead of the raw request bytes `[1]`, or clock skew against the payload's timestamp `[2]`. Use the Send Test Event button to isolate the issue without waiting for a live event `[1]`."
-> *[1] troubleshooting-webhooks.md · [2] api-reference.md* -->
+---
 
 ---
 
