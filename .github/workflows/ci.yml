@@ -15,20 +15,10 @@ jobs:
         image: qdrant/qdrant:latest
         ports:
           - 6333:6333
-        options: >-
-          --health-cmd "curl -f http://localhost:6333/readyz || exit 1"
-          --health-interval 5s
-          --health-timeout 2s
-          --health-retries 5
       redis:
         image: redis:latest
         ports:
           - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 2s
-          --health-retries 5
 
     steps:
     - name: Checkout repository
@@ -49,13 +39,31 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r backend/requirements.txt
 
+    - name: Wait for Qdrant and Redis services
+      run: |
+        python -c "
+        import socket, time
+        for port in [6333, 6379]:
+            connected = False
+            for _ in range(30):
+                try:
+                    s = socket.create_connection(('localhost', port), timeout=1)
+                    s.close()
+                    connected = True
+                    print(f'Port {port} is open and ready.')
+                    break
+                except Exception:
+                    time.sleep(1)
+            if not connected:
+                raise RuntimeError(f'Service on port {port} failed to become ready.')
+        "
+
     - name: Run tests
       env:
         QDRANT_URL: http://localhost:6333
         REDIS_URL: redis://localhost:6379
         LLM_API_KEY: placeholder_key
-        PYTHONPATH: .
+        PYTHONPATH: backend:.
       run: |
         cd backend
         python -m pytest
-
