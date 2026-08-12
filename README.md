@@ -40,7 +40,7 @@ Point Knowify at any product's docs — PDFs, API references, spreadsheets, FAQs
 </div>
 
 ---
-##user interface
+## User interface display
 
 <div align="center">
 <img src="./docs/assets/display.jpeg" alt="Knowify Chat Interface" width="750">
