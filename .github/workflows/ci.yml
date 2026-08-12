@@ -46,14 +46,14 @@ jobs:
 
         print('=== Polling Qdrant and Redis for Application Readiness ===')
 
-        # 1. Qdrant HTTP GET readiness check
+        # 1. Qdrant HTTP GET readiness check (Qdrant root endpoint returns 200 OK)
         qdrant_ok = False
         for attempt in range(1, 31):
             try:
-                req = urllib.request.Request('http://localhost:6333/readyz')
+                req = urllib.request.Request('http://localhost:6333/')
                 with urllib.request.urlopen(req, timeout=3) as resp:
                     if resp.status == 200:
-                        print(f'[Attempt {attempt}/30] Qdrant HTTP /readyz returned 200 OK.')
+                        print(f'[Attempt {attempt}/30] Qdrant HTTP / returned 200 OK.')
                         qdrant_ok = True
                         break
             except Exception as e:
