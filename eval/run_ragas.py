@@ -147,17 +147,20 @@ async def run_evaluation(use_cache: bool = True) -> None:
 
     logger.info("running_live_ragas_evaluation", collection=collection_name)
 
-    eval_items = []
-
-    # --- Phase 1: RAG pipeline (load from cache or run live) ---
+    # --- Phase 1: RAG pipeline (partial cache merge) ---
+    # Load existing cache entries keyed by question text
+    cache_by_question: dict[str, dict] = {}
     if use_cache and os.path.exists(PIPELINE_CACHE_PATH):
-        logger.info("pipeline_cache_hit", path=PIPELINE_CACHE_PATH)
         with open(PIPELINE_CACHE_PATH, "r", encoding="utf-8") as f:
-            eval_items = json.load(f)
-        logger.info("pipeline_cache_loaded", count=len(eval_items))
-    else:
-        logger.info("pipeline_cache_miss", running_live=True)
-        for idx, item in enumerate(golden_set):
+            cached = json.load(f)
+        cache_by_question = {e["question"]: e for e in cached}
+        logger.info("pipeline_cache_loaded", count=len(cache_by_question))
+
+    # Identify which golden set questions are missing from the cache
+    missing = [item for item in golden_set if item["question"] not in cache_by_question]
+    if missing:
+        logger.info("pipeline_cache_miss", missing_count=len(missing), running_live=True)
+        for idx, item in enumerate(missing):
             q = item["question"]
             ground_truth = item.get("ground_truth") or item.get("expected_answer")
 
@@ -196,18 +199,24 @@ async def run_evaluation(use_cache: bool = True) -> None:
             if not contexts:
                 contexts = [ground_truth]
 
-            eval_items.append({
+            cache_by_question[q] = {
                 "question": q,
                 "answer": generated_answer,
                 "contexts": contexts,
                 "ground_truth": ground_truth,
                 "route": res["route"]
-            })
+            }
 
-        # Save pipeline results to cache so future runs skip Phase 1
+        # Persist updated cache (all entries, including newly-run ones)
+        updated_cache = list(cache_by_question.values())
         with open(PIPELINE_CACHE_PATH, "w", encoding="utf-8") as f:
-            json.dump(eval_items, f, indent=2, ensure_ascii=False)
-        logger.info("pipeline_cache_saved", path=PIPELINE_CACHE_PATH, count=len(eval_items))
+            json.dump(updated_cache, f, indent=2, ensure_ascii=False)
+        logger.info("pipeline_cache_saved", path=PIPELINE_CACHE_PATH, count=len(updated_cache))
+    else:
+        logger.info("pipeline_cache_full_hit", count=len(cache_by_question))
+
+    # Assemble eval_items in golden-set order (preserves question order for table)
+    eval_items = [cache_by_question[item["question"]] for item in golden_set]
 
     # Convert to datasets.Dataset
     dataset_dict = {
