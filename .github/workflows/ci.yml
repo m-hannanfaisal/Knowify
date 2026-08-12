@@ -34,9 +34,10 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y tesseract-ocr
 
-    - name: Install dependencies
+    - name: Install dependencies (CPU PyTorch + requirements)
       run: |
         python -m pip install --upgrade pip
+        pip install torch --index-url https://download.pytorch.org/whl/cpu
         pip install -r backend/requirements.txt
 
     - name: Wait for Qdrant and Redis services
@@ -46,7 +47,7 @@ jobs:
 
         print('=== Polling Qdrant and Redis for Application Readiness ===')
 
-        # 1. Qdrant HTTP GET readiness check (Qdrant root endpoint returns 200 OK)
+        # 1. Qdrant HTTP GET readiness check (Qdrant root API endpoint)
         qdrant_ok = False
         for attempt in range(1, 31):
             try:
