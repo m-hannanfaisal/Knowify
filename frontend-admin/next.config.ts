@@ -11,6 +11,14 @@ const nextConfig: NextConfig = {
         source: "/api/v1/:path*",
         destination: "http://localhost:8000/api/v1/:path*",
       },
+      {
+        source: "/metrics",
+        destination: "http://localhost:8000/metrics",
+      },
+      {
+        source: "/health",
+        destination: "http://localhost:8000/health",
+      },
     ];
   },
 };

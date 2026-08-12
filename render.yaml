@@ -13,8 +13,13 @@ services:
         sync: false
       - key: TAVILY_API_KEY
         sync: false
+      - key: JWT_SECRET
+        sync: false
       - key: QDRANT_URL
-        value: "http://qdrant:6333"
+        fromService:
+          type: web
+          name: knowify-qdrant
+          property: hostport
       - key: REDIS_URL
         fromService:
           type: redis
@@ -29,17 +34,15 @@ services:
   - type: redis
     name: knowify-redis
     plan: starter
-    ipAllowList: [] # Access restricted to services in the same account
-
-  # 3. Private Qdrant Vector database service (blueprint definition)
-  - type: web
-    name: qdrant
-    env: docker
-    dockerfilePath: Dockerfile
-    dockerContext: .
-    plan: starter
     ipAllowList: []
+
+  # 3. Qdrant Vector Database — official Docker image (no custom Dockerfile needed)
+  - type: web
+    name: knowify-qdrant
+    env: docker
+    dockerImage: qdrant/qdrant:latest
+    plan: starter
     disk:
-      name: qdrant-data
+      name: qdrant-storage
       mountPath: /qdrant/storage
       sizeGB: 10
