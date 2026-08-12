@@ -61,7 +61,9 @@ jobs:
     - name: Run tests
       env:
         QDRANT_URL: http://localhost:6333
-        REDIS_URL: redis://localhost:6379
+        REDIS_URL: redis://localhost:6379/0
+        QDRANT_MODE: docker
+        CACHE_MODE: redis
         LLM_API_KEY: placeholder_key
         PYTHONPATH: backend:.
       run: |
