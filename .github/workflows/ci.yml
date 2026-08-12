@@ -42,20 +42,45 @@ jobs:
     - name: Wait for Qdrant and Redis services
       run: |
         python -c "
-        import socket, time
-        for port in [6333, 6379]:
-            connected = False
-            for _ in range(30):
-                try:
-                    s = socket.create_connection(('localhost', port), timeout=1)
-                    s.close()
-                    connected = True
-                    print(f'Port {port} is open and ready.')
+        import urllib.request, time, socket
+
+        print('=== Polling Qdrant and Redis for Application Readiness ===')
+
+        # 1. Qdrant HTTP GET readiness check
+        qdrant_ok = False
+        for attempt in range(1, 31):
+            try:
+                req = urllib.request.Request('http://localhost:6333/readyz')
+                with urllib.request.urlopen(req, timeout=3) as resp:
+                    if resp.status == 200:
+                        print(f'[Attempt {attempt}/30] Qdrant HTTP /readyz returned 200 OK.')
+                        qdrant_ok = True
+                        break
+            except Exception as e:
+                print(f'[Attempt {attempt}/30] Qdrant HTTP check waiting... ({e})')
+            time.sleep(2)
+
+        if not qdrant_ok:
+            raise RuntimeError('Qdrant service failed to respond with HTTP 200 OK within 60s.')
+
+        # 2. Redis RESP PING readiness check
+        redis_ok = False
+        for attempt in range(1, 31):
+            try:
+                s = socket.create_connection(('localhost', 6379), timeout=3)
+                s.sendall(b'*1\r\n$4\r\nPING\r\n')
+                reply = s.recv(1024)
+                s.close()
+                if b'PONG' in reply:
+                    print(f'[Attempt {attempt}/30] Redis RESP PING returned +PONG.')
+                    redis_ok = True
                     break
-                except Exception:
-                    time.sleep(1)
-            if not connected:
-                raise RuntimeError(f'Service on port {port} failed to become ready.')
+            except Exception as e:
+                print(f'[Attempt {attempt}/30] Redis PING check waiting... ({e})')
+            time.sleep(2)
+
+        if not redis_ok:
+            raise RuntimeError('Redis service failed to respond to PING within 60s.')
         "
 
     - name: Run tests
